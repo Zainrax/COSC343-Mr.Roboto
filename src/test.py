@@ -16,12 +16,18 @@ class Robot:
         self.c_switch = True  # True: Turning left, comp right, False: opposite.
         self.col_switch = True  # True: black, False: white.
         self.titleCount = 1
+        # Sets up offset for variable light
+        self.off_set = self.cl.reflected_light_intensity - 13
+        self.black_range = range(0, 20 + off_set)
+        self.gray_range = range(self.black_range[len(self.black_range)-1], 55+off_set)
+        self.white_range = range(self.gray_range[len(self.gray_range)-1], 100)
 
     def run(self):
+        # Moves the robot off starting pad and onto black-white tiles
         self.tank_pair.on_for_rotations(left_speed=50, right_speed=50, rotations=0.5)
         self.tank_pair.on_for_degrees(left_speed=50, right_speed=0, degrees=400)
         self.tank_pair.on(left_speed=20, right_speed=20)
-        if (self.cl.reflected_light_intensity > 50):
+        if (self.cl.reflected_light_intensity in self.white_range):
             self.col_switch = False
         elif (self.cl.reflected_light_intensity < 20):
             self.col_switch = True
