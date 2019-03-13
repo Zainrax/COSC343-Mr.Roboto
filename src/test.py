@@ -3,7 +3,6 @@ from ev3dev2.button import Button
 from ev3dev2.motor import MoveSteering, MoveTank, OUTPUT_B, OUTPUT_C
 from ev3dev2.sensor.lego import ColorSensor, TouchSensor
 from ev3dev2.sound import Sound
-from threading import Thread
 
 
 class Robot:
@@ -20,12 +19,12 @@ class Robot:
         self.tile_length = 230
         # Sets up offset for variable light
         self.off_set = self.cl.reflected_light_intensity - 13
-        self.black_range = range(0, 20)
-        self.gray_range = range(self.black_range[len(self.black_range)-1], 50)
-        self.white_range = range(self.gray_range[len(self.gray_range)-1], 100)
+        self.black_range = range(0, 30)
+        self.white_range = range(30, 100)
 
     def move_degrees(self, degrees):
-        self.tank_pair.on_for_degrees(left_speed=20, right_speed=20, degrees=degrees)
+        self.tank_pair.on_for_degrees(left_speed=10, right_speed=10, degrees=degrees)
+
 
     def run(self):
         # Moves the robot off starting pad and onto black-white tiles
@@ -48,18 +47,17 @@ class Robot:
             self.tank_pair.on(left_speed=20, right_speed=20)
         self.tank_pair.off()
         #self.tank_pair.on(left_speed=20, right_speed=20)
-        t = Thread(target=self.move_degrees, args=(1.5 * self.tile_length))
+
         while (self.tile_count < 15):
+            moved_degrees = 0
             black_found = False
-            print("starting")
-            t.start()
-            print("started")
-            while t.is_alive():
+            while (True):
+                self.move_degrees(10)
+                moved_degrees += 10
                 if (self.cl.reflected_light_intensity in self.black_range):
                     black_found = True
                     print("found black")
                     break
-
             self.tank_pair.off()
             if (black_found):
                 self.tile_count +=1
@@ -67,6 +65,8 @@ class Robot:
                 while not (self.cl.reflected_light_intensity in self.white_range):
                     pass
                 self.tank_pair.off()
+                if (moved_degrees > self.tile_length):
+                    self.realign()
             else:
                 self.realign()
         '''
@@ -115,21 +115,18 @@ class Robot:
             return self.white_range
         elif (self.cl.reflected_light_intensity in self.white_range):
             return self.black_range
-        else:
-            self.s.speak("help me")
-            return self.gray_range
 
     def center_robot(self, colour):
         right_turn_count = 0
         left_turn_count = 0
         #bias = 1/2
-        while not (self.cl.reflected_light_intensity in colour or self.cl.reflected_light_intensity in self.gray_range):
+        while not (self.cl.reflected_light_intensity in colour):
             self.tank_pair.on_for_degrees(left_speed=10, right_speed=-10, degrees=10)
             right_turn_count +=1
         #if (self.cl.reflected_light_intensity in self.gray_range):
         #    bias = 3/4
         self.tank_pair.on_for_degrees(left_speed=-10, right_speed=10, degrees=10*right_turn_count)
-        while not (self.cl.reflected_light_intensity in colour or self.cl.reflected_light_intensity in self.gray_range):
+        while not (self.cl.reflected_light_intensity in colour):
             self.tank_pair.on_for_degrees(left_speed=-10, right_speed=10, degrees=10)
             left_turn_count +=1
         #if (self.cl.reflected_light_intensity in self.gray_range):
