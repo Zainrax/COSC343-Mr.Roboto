@@ -3,7 +3,7 @@ from threading import Thread
 
 from ev3dev2.button import Button
 from ev3dev2.motor import MoveSteering, MoveTank, OUTPUT_B, OUTPUT_C
-from ev3dev2.sensor.lego import ColorSensor, TouchSensor
+from ev3dev2.sensor.lego import ColorSensor, TouchSensor, UltrasonicSensor
 from ev3dev2.sound import Sound
 
 
@@ -13,6 +13,7 @@ class Robot:
         self.tank_pair = MoveTank(OUTPUT_B, OUTPUT_C)
         self.touch_sensor = TouchSensor()
         self.cl = ColorSensor()
+        self.ultraSonic = UltrasonicSensor()
         self.s = Sound()
         self.btn = Button()
         self.c_switch = True  # True: Turning left, comp right, False: opposite.
@@ -21,7 +22,7 @@ class Robot:
         self.tile_length = 230
         # Sets up offset for variable light
         self.off_set = self.cl.reflected_light_intensity - 13
-        self.black_range = range(0, 20)
+        self.black_range = range(0, 30)
         self.gray_range = range(self.black_range[len(self.black_range) - 1], 50)
         self.white_range = range(self.gray_range[len(self.gray_range) - 1], 100)
 
@@ -45,12 +46,13 @@ class Robot:
 
     def run(self):
         colour_thread = Thread(target=self.check_colour)
-        move_thread = Thread(target=self.move_degrees, args=(1.5 * self.tile_length))
         # Moves the robot off starting pad and onto black-white tiles
         self.initialize_start()
         colour_thread.start()
         while (colour_thread.is_alive()):
-            move_thread.start()
+            self.move_degrees(180)
+
+
 
     def initialize_start(self):
         self.move_degrees(90)
@@ -96,6 +98,13 @@ class Robot:
             left_turn_count += 1
         self.tank_pair.on_for_degrees(left_speed=10, right_speed=-10,
                                       degrees=(10 * (right_turn_count + left_turn_count) / 2))
+
+    # This points robot towards the tower then returns its distance in cm.
+    def find_tower(self):
+        while (self.ultraSonic.distance_centimeters > 100):
+            self.tank_pair.on(left_speed=10, right_speed=-10)
+
+        self.off()
 
 
 if __name__ == "__main__":

@@ -50,43 +50,23 @@ class Robot:
 
         while (self.tile_count < 15):
             moved_degrees = 0
-            correct_alignment = True
             black_found = False
             while (True):
-                while (self.cl.reflected_light_intensity in self.white_range):
-                    self.tank_pair.on()
-                self.tank_pair.off()
+                self.move_degrees(10)
+                moved_degrees += 10
                 if (self.cl.reflected_light_intensity in self.black_range):
                     black_found = True
                     print("found black")
                     break
+            self.tank_pair.off()
             if (black_found):
                 self.tile_count +=1
                 self.tank_pair.on(left_speed=20, right_speed=20)
-                if (correct_alignment and self.tile_count > 1):
-                    self.move_degrees(self.tile_length*0.25)
-                    turn_degrees_right = 0
-                    turn_degrees_left = 0
-                    while not (self.cl.reflected_light_intensity in self.white_range):
-                        self.tank_pair.on_for_degrees(left_speed=10, right_speed=-10, degrees=10)
-                        turn_degrees_right +=10
-                    self.tank_pair.on_for_degrees(left_speed=-10, right_speed=10, degrees=turn_degrees_right)
-                    while not (self.cl.reflected_light_intensity in self.white_range):
-                        self.tank_pair.on_for_degrees(left_speed=-10, right_speed=10, degrees=10)
-                        turn_degrees_left +=10
-                    if (turn_degrees_right < turn_degrees_left):
-                        self.tank_pair.on_for_degrees(left_speed=10, right_speed=-10, degrees=turn_degrees_left-turn_degrees_right)
-                    elif (turn_degrees_left < turn_degrees_right):
-                        self.tank_pair.on_for_degrees(left_speed=10, right_speed=-10, degrees=turn_degrees_right-turn_degrees_left)
-                    else:
-                        self.s.speak("This should never have happened.")
-                        self.tank_pair.on_for_degrees(left_speed=10, right_speed=-10, degrees=turn_degrees_left)
-            else:
                 while not (self.cl.reflected_light_intensity in self.white_range):
                     pass
-            self.tank_pair.off()
-            if (moved_degrees > self.tile_length):
-                self.realign()
+                self.tank_pair.off()
+                if (moved_degrees > self.tile_length):
+                    self.realign()
             else:
                 self.realign()
         '''
@@ -173,4 +153,4 @@ class Robot:
 
 if __name__ == "__main__":
     r = Robot()
-    r.run()
+    r.checkColour()
