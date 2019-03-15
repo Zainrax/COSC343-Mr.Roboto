@@ -175,21 +175,29 @@ class Robot:
             left_turn_count += 1
         self.turn(degrees=2.5*(right_turn_count + left_turn_count))
 
-    # This points robot towards the tower then returns its distance in cm.
-    def find_tower(self):
-        self.turn(degrees=90)
-        self.move_degrees(self.tile_length * 17)
+    def search_for_tower(self):
         self.tank_pair.on(left_speed=10, right_speed=-10)
-        while (self.ultraSonic.distance_centimeters > 100):
+        while (self.ultraSonic.distance_centimeters > 40):
             pass
         self.off()
-        turn_count = 0
-        while (self.ultraSonic.distance_centimeters < 100):
-            self.turn(5)
-            turn_count +=1
-        self.turn(turn_count*-2.5)
+        if False:
+            turn_count = 0
+            while (self.ultraSonic.distance_centimeters < 40):
+                self.turn(5)
+                turn_count += 1
+            self.turn(turn_count * -2.5)
+
+    # This points robot towards the tower then returns its distance in cm.
+    def find_tower(self):
+        #self.turn(degrees=90)
+        #self.move_degrees(self.tile_length * 17)
+        while not self.touch_sensor.is_pressed:
+            self.search_for_tower()
+            self.on(speed=100)
+            while (self.ultraSonic.distance_centimeters < 40):
+                pass
+            self.off()
         self.on(speed=100)
-        self.touch_sensor.wait_for_pressed()
         while self.on_black():
             pass
         self.off()
@@ -199,7 +207,7 @@ class Robot:
 if __name__ == "__main__":
     r = Robot()
     try:
-        r.count_tiles()
+        r.find_tower()
     except:
         import traceback
         exc_type, exc_value, exc_traceback = sys.exc_info()
