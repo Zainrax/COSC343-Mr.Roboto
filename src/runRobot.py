@@ -31,11 +31,11 @@ class Robot:
         self.white_range = range(self.gray_range[len(self.gray_range) - 1], 100)
         self.sensor_dist = 86
 
-    def move_degrees(self, degrees):
+    def move_degrees(self, degrees, speed=20):
         if degrees > 0:
-            self.tank_pair.on_for_degrees(left_speed=20, right_speed=20, degrees=degrees)
+            self.tank_pair.on_for_degrees(left_speed=speed, right_speed=speed, degrees=degrees)
         else:
-            self.tank_pair.on_for_degrees(left_speed=-20, right_speed=-20, degrees=-degrees)
+            self.tank_pair.on_for_degrees(left_speed=-speed, right_speed=-speed, degrees=-degrees)
 
     def on(self, speed=20):
         self.tank_pair.on(left_speed=speed, right_speed=speed)
@@ -53,13 +53,10 @@ class Robot:
                 self.col_switch = True
 
     def run(self):
-        colour_thread = Thread(target=self.check_colour)
         # Moves the robot off starting pad and onto black-white tiles
         self.initialize_start()
         self.count_tiles()
-        #colour_thread.start()
-        #while (colour_thread.is_alive()):
-        #    self.move_degrees(180)
+        self.initialise_tower()
 
     def on_white(self):
         return (self.cl.reflected_light_intensity in self.white_range)
@@ -158,10 +155,8 @@ class Robot:
     def get_opposite_colour(self):
         if self.on_black():
             return self.white_range
-        elif self.on_white():
-            return self.black_range
         else:
-            self.s.speak("help me")
+            return self.black_range
 
     def center_robot(self, colour):
         right_turn_count = 0
@@ -175,28 +170,34 @@ class Robot:
             left_turn_count += 1
         self.turn(degrees=2.5*(right_turn_count + left_turn_count))
 
+    def degrees_to_cm(self, degrees):
+        return 360/(11*math.pi)
+
     def search_for_tower(self):
-        self.tank_pair.on(left_speed=10, right_speed=-10)
-        while (self.ultraSonic.distance_centimeters > 40):
-            pass
-        self.off()
-        if False:
-            turn_count = 0
-            while (self.ultraSonic.distance_centimeters < 40):
-                self.turn(5)
-                turn_count += 1
-            self.turn(turn_count * -2.5)
+        turn_count = 0
+        while (self.ultraSonic.distance_centimeters > 100):
+            self.turn(5)
+            turn_count += 5
+            # move a short distance to get a better position then search again
+            if turn_count >= 360:
+                self.move_degrees(self.tile_length)
+                turn_count = 0
+        turn_count = 0
+        while (self.ultraSonic.distance_centimeters < 100):
+            self.turn(5)
+            turn_count += 5
+        self.turn(-turn_count/2)
 
     # This points robot towards the tower then returns its distance in cm.
-    def find_tower(self):
-        #self.turn(degrees=90)
-        #self.move_degrees(self.tile_length * 17)
+    def initialise_tower(self):
+        self.turn(degrees=90)
+        self.move_degrees(self.tile_length * 18, speed=100)
         while not self.touch_sensor.is_pressed:
-            self.search_for_tower()
-            self.on(speed=100)
-            while (self.ultraSonic.distance_centimeters < 40):
-                pass
-            self.off()
+            if self.ultraSonic.distance_centimeters < 100:
+                self.move_degrees(self.tile_length/2)
+            else:
+                self.search_for_tower()
+        #self.s.speak("exited search routine")
         self.on(speed=100)
         while self.on_black():
             pass
@@ -207,7 +208,7 @@ class Robot:
 if __name__ == "__main__":
     r = Robot()
     try:
-        r.find_tower()
+        r.run()
     except:
         import traceback
         exc_type, exc_value, exc_traceback = sys.exc_info()
