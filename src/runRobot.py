@@ -4,8 +4,10 @@ from threading import Thread
 from ev3dev2.button import Button
 from ev3dev2.motor import MoveSteering, MoveTank, OUTPUT_B, OUTPUT_C
 from ev3dev2.sensor.lego import ColorSensor, TouchSensor, UltrasonicSensor
+from ev3dev2.sensor import INPUT_1, INPUT_2
 from ev3dev2.sound import Sound
 import math
+import time
 
 from ev3dev2 import *
 
@@ -15,7 +17,8 @@ class Robot:
     def __init__(self):
         self.steer = MoveSteering(OUTPUT_B, OUTPUT_C)
         self.tank_pair = MoveTank(OUTPUT_B, OUTPUT_C)
-        self.touch_sensor = TouchSensor()
+        self.touch_sensor_left = TouchSensor(INPUT_1)
+        self.touch_sensor_right = TouchSensor(INPUT_2)
         self.cl = ColorSensor()
         self.ultraSonic = UltrasonicSensor()
         self.s = Sound()
@@ -66,7 +69,7 @@ class Robot:
 
     def turn(self, degrees):
         if (degrees == 0): return
-        self.tank_pair.on_for_degrees(left_speed=10*(degrees/abs(degrees)), right_speed=-10*(degrees/abs(degrees)), degrees=abs(degrees)*1.987)
+        self.tank_pair.on_for_degrees(left_speed=10*(degrees/abs(degrees)), right_speed=-10*(degrees/abs(degrees)), degrees=abs(degrees)*1.87)
 
     def count_tiles(self):
         tile_count = 0
@@ -170,45 +173,77 @@ class Robot:
             left_turn_count += 1
         self.turn(degrees=2.5*(right_turn_count + left_turn_count))
 
-    def degrees_to_cm(self, degrees):
-        return 360/(11*math.pi)
+    def cm_to_degrees(self, cm):
+        return (360/(6*math.pi))*cm
+
+    def turn_360(self):
+        self.turn(degrees=360)
 
     def search_for_tower(self):
-        turn_count = 0
-        while (self.ultraSonic.distance_centimeters > 100):
-            self.turn(5)
-            turn_count += 5
-            # move a short distance to get a better position then search again
-            if turn_count >= 360:
-                self.move_degrees(self.tile_length)
-                turn_count = 0
-        turn_count = 0
-        while (self.ultraSonic.distance_centimeters < 100):
-            self.turn(5)
-            turn_count += 5
-        self.turn(-turn_count/2)
+        min_dist = 255
+        start_time = time.time()
+        min_time = start_time
+        turn_thread = Thread(target=self.turn_360)
+        turn_thread.start()
+        while turn_thread.is_alive():
+            cur_dist = self.ultraSonic.distance_centimeters
+            if cur_dist < min_dist:
+                min_dist = cur_dist
+                min_time = time.time()
+        end_time = time.time()
+        self.turn(degrees=360*(min_time-start_time)/(end_time-start_time))
+        # self.s.speak(str(min_dist))
+        return min_dist
+
+
+        # turn_count = 0
+        # min = 255
+        # turn_to_min = 0
+        # while (turn_count < 360):
+        #     if (self.touch_sensor_left.is_pressed or self.touch_sensor_right.is_pressed):
+        #         return
+        #     self.turn(5)
+        #     if self.ultraSonic.distance_centimeters < min:
+        #         min = self.ultraSonic.distance_centimeters
+        #         turn_to_min = turn_count
+        #     turn_count += 5
+        # self.turn(turn_to_min)
+        # return min
 
     # This points robot towards the tower then returns its distance in cm.
     def initialise_tower(self):
         self.turn(degrees=90)
-        self.move_degrees(self.tile_length * 18, speed=100)
-        while not self.touch_sensor.is_pressed:
-            if self.ultraSonic.distance_centimeters < 100:
-                self.move_degrees(self.tile_length/2)
-            else:
+        self.move_degrees(self.tile_length * 18, speed=80)
+        just_found_tower = False
+        while not (self.touch_sensor_left.is_pressed or self.touch_sensor_right.is_pressed):
+            distance = self.search_for_tower()
+            if distance/2 <= 20:
+                self.move_degrees(self.cm_to_degrees(distance-20))
                 self.search_for_tower()
-        #self.s.speak("exited search routine")
+                break
+            self.move_degrees(self.cm_to_degrees(distance/2))
+        self.on(speed=100)
+        while not (self.touch_sensor_right.is_pressed or self.touch_sensor_left.is_pressed):
+            pass
+        while self.on_white():
+            pass
+        self.off()
+        self.move_degrees(self.tile_length*2, speed=100)
         self.on(speed=100)
         while self.on_black():
             pass
         self.off()
         self.s.speak("Mission Completed")
 
+    def get_distance(self):
+        while True:
+            print(self.ultraSonic.distance_centimeters)
+
 
 if __name__ == "__main__":
-    r = Robot()
     try:
-        r.run()
+        r = Robot()
+        r.initialise_tower()
     except:
         import traceback
         exc_type, exc_value, exc_traceback = sys.exc_info()
