@@ -1,21 +1,19 @@
 #!/usr/bin/env python3
-from threading import Thread
-
-from ev3dev2.button import Button
-from ev3dev2.motor import MoveSteering, MoveTank, OUTPUT_B, OUTPUT_C
-from ev3dev2.sensor.lego import ColorSensor, TouchSensor, UltrasonicSensor
-from ev3dev2.sensor import INPUT_1, INPUT_2
-from ev3dev2.sound import Sound
 import math
 import time
+from threading import Thread
 
 from ev3dev2 import *
-
+from ev3dev2.button import Button
+from ev3dev2.motor import MoveSteering, MoveTank, OUTPUT_B, OUTPUT_C
+from ev3dev2.sensor import INPUT_1, INPUT_2
+from ev3dev2.sensor.lego import ColorSensor, TouchSensor, UltrasonicSensor
+from ev3dev2.sound import Sound
 
 
 class Robot:
     def __init__(self):
-        self.steer = MoveSteering(OUTPUT_B, OUTPUT_C)
+        self.steer_pair = MoveSteering(OUTPUT_B, OUTPUT_C)
         self.tank_pair = MoveTank(OUTPUT_B, OUTPUT_C)
         self.touch_sensor_left = TouchSensor(INPUT_1)
         self.touch_sensor_right = TouchSensor(INPUT_2)
@@ -40,11 +38,18 @@ class Robot:
         else:
             self.tank_pair.on_for_degrees(left_speed=-speed, right_speed=-speed, degrees=-degrees)
 
+    def steer_on(self, steering, speed=20):
+        if (steering > 0):
+            self.tank_pair.on(left_speed=speed, right_speed=0)
+        elif (steering < 0):
+            self.tank_pair.on(left_speed=0, right_speed=speed)
+
     def on(self, speed=20):
         self.tank_pair.on(left_speed=speed, right_speed=speed)
 
     def off(self):
         self.tank_pair.off()
+
 
     def check_colour(self):
         while (self.tile_count < 15):
@@ -67,93 +72,63 @@ class Robot:
     def on_black(self):
         return (self.cl.reflected_light_intensity in self.black_range)
 
-    def turn(self, degrees):
-        if (degrees == 0): return
-        self.tank_pair.on_for_degrees(left_speed=10*(degrees/abs(degrees)), right_speed=-10*(degrees/abs(degrees)), degrees=abs(degrees)*1.87)
-
-    def count_tiles(self):
-        tile_count = 0
-        self.on()
-        while self.on_black():
-            pass
-        self.off()
-        tile_count +=1
-        self.s.play_tone(200 * tile_count, 0.5)
-        while tile_count < 14:
-            # skip over white tiles
-            self.on()
-            while self.on_white():
-                pass
-            self.off()
-
-            # found a black tile; move to its centre
-            self.move_degrees(degrees=self.tile_length*0.5 + self.sensor_dist)
-
-            # find distance from centre of black tile to right-edge of black tile
-            self.turn(degrees=90)
-            right_dist = self.sensor_dist
-            while self.on_black():  # find right_dist
-                self.move_degrees(degrees=8)
-                right_dist += 8
-
-            # move robot back to centre
-            self.move_degrees(degrees=-(right_dist - self.sensor_dist))
-
-            # find distance from centre of black tile to left-edge of black tile
-            self.turn(degrees=-180)
-            left_dist = self.sensor_dist
-            while self.on_black():  # find left_dist
-                self.move_degrees(degrees=8)
-                left_dist += 8
-
-            # drive robot to centre
-            middle_dist = (right_dist + left_dist) / 2
-            self.move_degrees(degrees=self.sensor_dist)
-            self.turn(degrees=180)
-            self.move_degrees(degrees=middle_dist)
-
-            # adjust robot's direction
-            angle_correction = 0.6*math.degrees(math.acos(1 / math.sqrt(1 + (0.25 - 0.5 * left_dist / self.tile_length) ** 2)))
-            if left_dist < self.tile_length / 2:
-                self.turn(degrees=-90 + angle_correction)
-            else:
-                self.turn(-90 - angle_correction)
-            self.on()
-            while self.on_black():
-                pass
-            self.off()
-            tile_count +=1
-            self.s.play_tone(200*tile_count, 0.5)
-        self.on()
+    def skip_white(self, speed=20):
+        self.on(speed=speed)
         while self.on_white():
             pass
         self.off()
-        tile_count +=1
-        self.s.play_tone(100 + (50 * tile_count), 0.5)
-        self.move_degrees(self.tile_length + self.sensor_dist)
+
+    def skip_black(self, speed=20):
+        self.on(speed=speed)
+        while self.on_black():
+            pass
+        print("skipping black")
+        self.off()
+
+    def turn(self, degrees, speed=20):
+        if degrees >= 0:
+            self.tank_pair.on_for_degrees(left_speed=speed, right_speed=-speed, degrees=degrees * 1.987)
+        else:
+            self.tank_pair.on_for_degrees(left_speed=-speed, right_speed=speed, degrees=-degrees * 1.987)
+
+    def count_tiles(self):
+        # skip first black tile, measure time taken
+        tile_count = 1
+
+        while tile_count < 15:
+            self.s.play_tone(100 + (50 * tile_count), 0.5)
+            self.move_degrees(self.tile_length / 2)
+            self.turn(90, speed=40)
+            self.move_degrees(40)
+            right_is_white = self.on_white()
+            self.move_degrees(-40)
+            self.turn(180, speed=40)
+            self.move_degrees(40)
+            left_is_white = self.on_white()
+            self.move_degrees(-40)
+            self.turn(-270, speed=40)
+
+            if left_is_white and not (right_is_white):
+                self.turn(12)
+            elif not (left_is_white) and right_is_white:
+                self.turn(-12)
+
+            self.skip_black()
+            self.skip_white()
+            tile_count += 1
+        self.s.play_tone(50, 0.5)
+        self.move_degrees(-self.tile_length * 0.5)
+
 
     def initialize_start(self):
         self.move_degrees(90)
-        while self.on_black():
-            self.on()
-        self.off()
-        while self.on_white():
-            self.on()
-        self.off()
-        self.move_degrees(self.tile_length * 0.75)
-        self.move_degrees(180)
-        while self.on_black():
-            self.on()
-        self.off()
-        self.move_degrees(self.tile_length * 0.25)
-        current_tile = self.get_opposite_colour()
-        self.center_robot(current_tile)
-        while not (self.cl.reflected_light_intensity in current_tile):
-            self.on()
-        self.off()
-
-    def realign(self):
-        self
+        self.skip_white()
+        self.skip_black()
+        self.skip_white()
+        self.move_degrees(self.tile_length / 2 + self.sensor_dist)
+        self.turn(degrees=90)
+        self.skip_black(speed=-20)
+        self.skip_white()
 
     def get_opposite_colour(self):
         if self.on_black():
@@ -243,7 +218,8 @@ class Robot:
 if __name__ == "__main__":
     try:
         r = Robot()
-        r.initialise_tower()
+        r.run()
+
     except:
         import traceback
         exc_type, exc_value, exc_traceback = sys.exc_info()
