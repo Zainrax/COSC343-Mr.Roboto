@@ -65,9 +65,9 @@ class Robot:
             self.tank_pair.on_for_degrees(left_speed=-speed, right_speed=speed, degrees=-degrees * 1.987)
 
     def run(self):
-        self.initialize_start()
-        self.count_tiles()
-        self.bump_tower()
+        self.on(speed=80)
+        while True:
+            pass
 
     def initialize_start(self):
         self.move_degrees(80)
@@ -88,7 +88,7 @@ class Robot:
             tile_count += 1
             self.sound.play_tone(100 + (50 * tile_count), 0.5)
             self.move_degrees(120)
-            
+
             self.turn(90)
             self.move_degrees(40)
             right_is_white = self.on_white()
@@ -99,9 +99,9 @@ class Robot:
             self.move_degrees(-40)
             self.turn(90)
 
-            if left_is_white and not(right_is_white):
+            if left_is_white and not (right_is_white):
                 turn_angle = 7
-            elif not(left_is_white) and right_is_white:
+            elif not (left_is_white) and right_is_white:
                 turn_angle = -7
             else:
                 turn_angle = 0
@@ -111,7 +111,7 @@ class Robot:
             self.turn(turn_angle)
             robot_angle += turn_angle
             prev_turn_angle = turn_angle
-            
+
             self.skip_black()
             self.skip_white()
 
@@ -120,7 +120,7 @@ class Robot:
         self.move_degrees(-self.tile_length * 0.5)
 
     def cm_to_degrees(self, cm):
-        return (360/(6*math.pi))*cm
+        return (360 / (6 * math.pi)) * cm
 
     def turn_360(self):
         self.turn(degrees=360)
@@ -139,21 +139,21 @@ class Robot:
                 min_time = time.time()
         end_time = time.time()
         self.turn(degrees=-360)
-        self.turn(degrees=360*(min_time-start_time)/(end_time-start_time))
+        self.turn(degrees=360 * (min_time - start_time) / (end_time - start_time))
         return min_dist
 
     def bump_tower(self):
         self.turn(degrees=90)
         self.move_degrees(self.tile_length * 18)
-        
+
         while True:
             distance = self.search_for_tower()
             if distance / 2 <= 20:
-                self.move_degrees(self.cm_to_degrees(distance-20))
+                self.move_degrees(self.cm_to_degrees(distance - 20))
                 self.search_for_tower()
                 break
-            self.move_degrees(self.cm_to_degrees(distance/2))
-            
+            self.move_degrees(self.cm_to_degrees(distance / 2))
+
         self.on(speed=100)
         time.sleep(5)
         self.off()
@@ -167,6 +167,7 @@ if __name__ == "__main__":
 
     except:
         import traceback
+
         exc_type, exc_value, exc_traceback = sys.exc_info()
         traceback.print_exception(exc_type, exc_value, exc_traceback, file=sys.stdout)
         while True:
