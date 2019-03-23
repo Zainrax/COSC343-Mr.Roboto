@@ -75,41 +75,54 @@ class Robot:
         self.skip_white()
         self.move_degrees(self.tile_length / 2 + self.sensor_dist)
         self.turn(degrees=90)
+        self.skip_white(speed=-20)
         self.skip_black(speed=-20)
         self.skip_white()
+
+    def get_angle_from_color(self, left2, left1, right1, right2):
+        num = 0
+        if not left2:
+            num += 8
+        if not left1:
+            num += 4
+        if not right1:
+            num += 2
+        if not right2:
+            num += 1
+
+        angle_list = [0, -7, 3.5, 7, -3.5, -7, 0, 3.5, 7, 0, 7, 7, -7, -7, -3.5, 0]
+        return angle_list[num]
 
     def count_tiles(self):
         tile_count = 0
         turn_angle = 0
         prev_turn_angle = 0
-        robot_angle = 0
 
         while tile_count < 14:
             tile_count += 1
             self.sound.play_tone(100 + (50 * tile_count), 0.5)
-            self.move_degrees(120)
+            self.move_degrees(135)
             
             self.turn(90)
+            right_is_white_1 = self.on_white()
             self.move_degrees(40)
-            right_is_white = self.on_white()
+            right_is_white_2 = self.on_white()
             self.move_degrees(-40)
             self.turn(-180)
+            left_is_white_1 = self.on_white()
             self.move_degrees(40)
-            left_is_white = self.on_white()
+            left_is_white_2 = self.on_white()
             self.move_degrees(-40)
             self.turn(90)
 
-            if left_is_white and not(right_is_white):
-                turn_angle = 7
-            elif not(left_is_white) and right_is_white:
-                turn_angle = -7
-            else:
-                turn_angle = 0
+            turn_angle = self.get_angle_from_color(left_is_white_2, left_is_white_1, right_is_white_1, right_is_white_2)
+            if prev_turn_angle > 0 and turn_angle > 0:
+                turn_angle = 3.5
+            elif prev_turn_angle < 0 and turn_angle < 0:
+                turn_angle = -3.5
+            elif turn_angle == 0:
                 self.turn(-prev_turn_angle)
-            if abs(robot_angle + turn_angle) >= 14:
-                turn_angle /= 2
             self.turn(turn_angle)
-            robot_angle += turn_angle
             prev_turn_angle = turn_angle
             
             self.skip_black()
@@ -117,13 +130,13 @@ class Robot:
 
         tile_count += 1
         self.sound.play_tone(100 + (50 * tile_count), 0.5)
-        self.move_degrees(-self.tile_length * 0.5)
+        self.move_degrees(self.tile_length)
 
     def cm_to_degrees(self, cm):
         return (360/(6*math.pi))*cm
 
     def turn_360(self):
-        self.turn(degrees=360)
+        self.turn(degrees=370)
 
     # point robot towards tower; return distance in cm
     def search_for_tower(self):
@@ -138,8 +151,8 @@ class Robot:
                 min_dist = cur_dist
                 min_time = time.time()
         end_time = time.time()
-        self.turn(degrees=-360)
-        self.turn(degrees=360*(min_time-start_time)/(end_time-start_time))
+        self.turn(degrees=-370)
+        self.turn(degrees=370*(min_time-start_time)/(end_time-start_time))
         return min_dist
 
     def bump_tower(self):
@@ -153,11 +166,22 @@ class Robot:
                 self.search_for_tower()
                 break
             self.move_degrees(self.cm_to_degrees(distance/2))
-            
+
+        self.move_degrees(self.cm_to_degrees(10), speed=20)
+        for i in range(40,101,10):
+            self.move_degrees(self.tile_length*2, speed=i)
+            self.move_degrees(-self.tile_length, speed=50)
+        for i in range(5):
+            self.move_degrees(self.tile_length*2, speed=100)
+            self.move_degrees(-self.tile_length, speed=50)
         self.on(speed=100)
         time.sleep(5)
         self.off()
-        self.sound.speak("Mission Completed")
+        try:
+            self.sound.play("../../sounds/yababy.wav")
+        except FileNotFoundError as e:
+            self.sound.speak("Mission Complete")
+        self.sound.beep()
 
 
 if __name__ == "__main__":
