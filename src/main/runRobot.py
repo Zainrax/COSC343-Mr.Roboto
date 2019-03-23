@@ -177,11 +177,7 @@ class Robot:
         self.on(speed=100)
         time.sleep(5)
         self.off()
-        try:
-            self.sound.play("../../sounds/yababy.wav")
-        except FileNotFoundError as e:
-            self.sound.speak("Mission Complete")
-        self.sound.beep()
+        self.sound.play_tone(400, 1)
 
 
 if __name__ == "__main__":
